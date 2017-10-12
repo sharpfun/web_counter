@@ -2,39 +2,53 @@ package storage
 
 import (
     "testing"
-    "reflect"
     "../storage"
+    "time"
 )
 
 
 func TestWriteRead(t *testing.T) {
-	os.Remove("test.log")
+    store1 := storage.NewTimestampStorage("test1.log")
     
-    timestamps1 := []int64{1,2,3}
-    utils.WriteTimestamps("test.log", timestamps1)
-    timestamps2 := utils.ReadTimestamps("test.log")
-    
-    if !reflect.DeepEqual(timestamps1, timestamps2) {
-        t.Errorf("ReadTimestamps data differs from WriteTimestamps %v, want %v", timestamps2, timestamps1)
+    //verify counter increases
+    for i:=1; i<10; i++ {
+        counter := <- store1.CounterAddTimestampNow()
+        if counter != i {
+            t.Errorf("Counter is wrong %v, want %v", counter, i)
+        }
     }
     
     //verify path is not ignored
+    store2 := storage.NewTimestampStorage("test2.log")
     
-    os.Remove("test2.log")
-    
-    timestamps11 := []int64{1,2,3}
-    utils.WriteTimestamps("test1.log", timestamps11)
-    timestamps21 := []int64{4,5,3}
-    utils.WriteTimestamps("test2.log", timestamps21)
-
-    timestamps12 := utils.ReadTimestamps("test1.log")
-    timestamps22 := utils.ReadTimestamps("test.log")
-    
-    if !reflect.DeepEqual(timestamps11, timestamps12) {
-        t.Errorf("ReadTimestamps data differs from WriteTimestamps %v, want %v", timestamps12, timestamps11)
+    for i:=1; i<5; i++ {
+        counter := <- store2.CounterAddTimestampNow()
+        if counter != i {
+            t.Errorf("Counter is wrong %v, want %v", counter, i)
+        }
     }
     
-    if !reflect.DeepEqual(timestamps11, timestamps12) {
-        t.Errorf("ReadTimestamps data differs from WriteTimestamps %v, want %v", timestamps12, timestamps11)
-    }
+    counter := <- store1.CounterAddTimestampNow()
+    
+    if counter != 10 {
+		t.Errorf("Counter is wrong %v, want %v", counter, 10)
+	}
+	
+	counter = <- store2.CounterAddTimestampNow()
+    
+    if counter != 5 {
+		t.Errorf("Counter is wrong %v, want %v", counter, 5)
+	}
+    
+    time.Sleep(5 * time.Second)
+    
+    counter = <- store1.CounterAddTimestampNow()
+    
+    time.Sleep(56 * time.Second)
+    
+	counter = <- store1.CounterAddTimestampNow()
+    
+    if counter != 2 {
+		t.Errorf("Counter after 60s is wrong %v, want %v", counter, 2)
+	}
 }
